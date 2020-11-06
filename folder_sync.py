@@ -34,7 +34,7 @@ def filetree(source, dest):
                 filestring = str(e)
                 file_array = filestring.split('\'')
                 file = file_array[1]
-                path_dest = str(dest)+file
+                path_dest = os.path.join(dest,file)
                 with open(path_dest) as file_to_check:
                     data = file_to_check.read() + file   
                     md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
@@ -45,7 +45,7 @@ def filetree(source, dest):
                 filestring = str(e)
                 file_array = filestring.split('\'')
                 file = file_array[1]
-                path_source = str(source)+"//"+file
+                path_source = os.path.join(source,file)
                 with open(path_source) as file_to_check:
                     data = file_to_check.read() + file   
                     md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
@@ -70,7 +70,7 @@ def filetree(source, dest):
                 
                 adiciona_linha_log("Copiado: " + str(path_source) + " para " + str(path_dest))
             
-                path_dest = str(dest)+file
+                path_dest = os.path.join(dest,file)
                 with open(path_dest) as file_to_check:
                     data = file_to_check.read() + path_dest   
                     md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
@@ -99,7 +99,7 @@ class Event(LoggingEventHandler):
                 if paths[0] in path_array:
                     filetree(paths[0], paths[1])
     except Exception as err:
-        print(err)
+        print("Erro: ",err)
         adiciona_linha_log(str(err))
 
 
@@ -112,9 +112,13 @@ if __name__ == "__main__":
     observer = Observer()
 
     for item in configs['SYNC_FOLDERS']:
-        host = (configs['SYNC_FOLDERS'][item]).split(', ')
-        observer.schedule(event_handler, host[0], recursive=True)
- 
+        try:
+            host = (configs['SYNC_FOLDERS'][item]).split(', ')
+            observer.schedule(event_handler, host[0], recursive=True)
+        except Exception as err:
+            print("Erro ao carregar o diretório: ", host[0])
+            adiciona_linha_log(str(err)+host[0])
+
     observer.start()
     try:
         while True:
