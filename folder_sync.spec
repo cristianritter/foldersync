@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['folder_sync.py'],
-             pathex=['C:\\Users\\cristian_ritter\\Documents\\PROJETOS\\FolderSync'],
+             pathex=['D:\\Projetos\\foldersync'],
              binaries=[],
              datas=[],
              hiddenimports=[],
