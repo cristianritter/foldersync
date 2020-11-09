@@ -90,8 +90,8 @@ def filetree(source, dest):
 class Event(LoggingEventHandler):
     try:
         def dispatch(self, event):
-            print(event)
             LoggingEventHandler()
+            print(event)
             adiciona_linha_log(str(event))
             path_event = str(event.src_path)
             for item in configs['SYNC_FOLDERS']:
