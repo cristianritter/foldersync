@@ -22,6 +22,7 @@ def adiciona_linha_log(texto):
         dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         f.write(dataFormatada + texto +"\n")
         f.close()
+        print(texto)
     except Exception as err:
         print(err)
 
@@ -92,11 +93,10 @@ class Event(LoggingEventHandler):
             print(event)
             LoggingEventHandler()
             adiciona_linha_log(str(event))
-            path = str(event.src_path)
-            path_array = path.split('\\')
+            path_event = str(event.src_path)
             for item in configs['SYNC_FOLDERS']:
                 paths = (configs['SYNC_FOLDERS'][item]).split(', ')
-                if paths[0] in path_array:
+                if paths[0] in path_event:
                     filetree(paths[0], paths[1])
     except Exception as err:
         print("Erro: ",err)
