@@ -10,7 +10,7 @@ from watchdog.events import LoggingEventHandler
 from datetime import date, datetime
 
 configuration = parse_config.ConfPacket()
-configs = configuration.load_config('SYNC_FOLDERS, LOG_FOLDER')
+configs = configuration.load_config('SYNC_FOLDERS, LOG_FOLDER, SYNC_TIMES')
 
 files_destination_md5=dict()
 files_source_md5=dict()
@@ -24,7 +24,7 @@ def adiciona_linha_log(texto):
         f.close()
         print(texto)
     except Exception as err:
-        print(err)
+        print(err)        
 
 def filetree(source, dest):
     try:
@@ -87,11 +87,16 @@ def filetree(source, dest):
         print(err)
         adiciona_linha_log(str(err))
 
+def sync_all_folders():
+    for item in configs['SYNC_FOLDERS']:
+        paths = (configs['SYNC_FOLDERS'][item]).split(', ')
+        filetree(paths[0], paths[1])
+
+
 class Event(LoggingEventHandler):
     try:
         def dispatch(self, event):
             LoggingEventHandler()
-            print(event)
             adiciona_linha_log(str(event))
             path_event = str(event.src_path)
             for item in configs['SYNC_FOLDERS']:
@@ -122,7 +127,15 @@ if __name__ == "__main__":
     observer.start()
     try:
         while True:
-            time.sleep(1)
+            sleep_time = configs['SYNC_TIMES']['sync_with_no_events_time']
+            if (sleep_time > 0):
+                time.sleep(sleep_time)
+                print("Synchronizing...")
+                sync_all_folders()
+            else:
+                time.sleep(30)
+            print("ENGENHARIA NSC - Sincronizador de Diretórios")
+            print("Para verificar os diretórios, consulte o arquivo 'config.ini'.")
           
     except KeyboardInterrupt:
         observer.stop()
