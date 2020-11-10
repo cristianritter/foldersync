@@ -36,7 +36,7 @@ def filetree(source, dest):
                 file_array = filestring.split('\'')
                 file = file_array[1]
                 path_dest = os.path.join(dest,file)
-                with open(path_dest) as file_to_check:
+                with open(path_dest, encoding='utf8') as file_to_check:
                     data = file_to_check.read() + file   
                     md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
                 files_destination_md5[file]=md5_returned
@@ -47,10 +47,13 @@ def filetree(source, dest):
                 file_array = filestring.split('\'')
                 file = file_array[1]
                 path_source = os.path.join(source,file)
-                with open(path_source) as file_to_check:
-                    data = file_to_check.read() + file   
-                    md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
-                files_source_md5[file]=md5_returned
+                try:
+                    with open(path_source, encoding='utf8') as file_to_check:
+                        data = file_to_check.read() + file   
+                        md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
+                    files_source_md5[file]=md5_returned
+                except Exception as err:
+                    files_source_md5.pop(file, None)
 
         files_to_remove=[]
         for file in files_destination_md5:
@@ -72,7 +75,7 @@ def filetree(source, dest):
                 adiciona_linha_log("Copiado: " + str(path_source) + " para " + str(path_dest))
             
                 path_dest = os.path.join(dest,file)
-                with open(path_dest) as file_to_check:
+                with open(path_dest, encoding='utf8') as file_to_check:
                     data = file_to_check.read() + path_dest   
                     md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
                 files_destination_md5[file]=md5_returned
@@ -127,15 +130,14 @@ if __name__ == "__main__":
     observer.start()
     try:
         while True:
-            sleep_time = configs['SYNC_TIMES']['sync_with_no_events_time']
+            sleep_time = int(configs['SYNC_TIMES']['sync_with_no_events_time'])
             if (sleep_time > 0):
                 time.sleep(sleep_time)
-                print("Synchronizing...")
+                print("Synchronizing...\n")
                 sync_all_folders()
             else:
                 time.sleep(30)
             print("ENGENHARIA NSC - Sincronizador de Diretórios")
-            print("Para verificar os diretórios, consulte o arquivo 'config.ini'.")
           
     except KeyboardInterrupt:
         observer.stop()
