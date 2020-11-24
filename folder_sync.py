@@ -10,7 +10,7 @@ from watchdog.events import LoggingEventHandler
 from datetime import date, datetime
 
 configuration = parse_config.ConfPacket()
-configs = configuration.load_config('SYNC_FOLDERS, LOG_FOLDER, SYNC_TIMES')
+configs = configuration.load_config('SYNC_FOLDERS, LOG_FOLDER, SYNC_TIMES, SYNC_EXTENSIONS')
 
 files_destination_md5=dict()
 files_source_md5=dict()
@@ -26,36 +26,47 @@ def adiciona_linha_log(texto):
     except Exception as err:
         print(err)        
 
-def filetree(source, dest):
+def digest(filepath):
+    path, filename = os.path.split(filepath)
+    with open(filepath, 'rb') as file:
+        data = file.read() + filename.encode()   
+        md5_returned = hashlib.md5(data).hexdigest()
+    return md5_returned
+
+def filetree(source, dest, sync_name):
+    try: 
+        sync_ext = configs['SYNC_EXTENSIONS'][sync_name].split(', ')
+    except:
+        sync_ext = []
+
+    files_destination_md5.clear()
+    files_source_md5.clear()
+    
     try:
-        files_destination_md5.clear()
-        files_source_md5.clear()
         for e in os.scandir(dest):
             if e.is_file():
                 filestring = str(e)
                 file_array = filestring.split('\'')
-                file = file_array[1]
-                path_dest = os.path.join(dest,file)
-                with open(path_dest, encoding='utf8') as file_to_check:
-                    data = file_to_check.read() + file   
-                    md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
-                files_destination_md5[file]=md5_returned
-    
+                filename = file_array[1]
+                if (os.path.splitext(filename)[1][1:] not in sync_ext) & (len(sync_ext)):
+                    #print(os.path.splitext(filename)[1][1:],sync_ext)
+                    continue
+                filepath = os.path.join(dest,filename)
+                files_destination_md5[filename]=digest(filepath)
+              
         for e in os.scandir(source):
             if e.is_file():
                 filestring = str(e)
                 file_array = filestring.split('\'')
-                file = file_array[1]
-                path_source = os.path.join(source,file)
-                try:
-                    with open(path_source, encoding='utf8') as file_to_check:
-                        data = file_to_check.read() + file   
-                        md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
-                    files_source_md5[file]=md5_returned
-                except Exception as err:
-                    files_source_md5.pop(file, None)
+                filename = file_array[1]
+                if (os.path.splitext(filename)[1][1:] not in sync_ext) & (len(sync_ext)):
+                    #print(os.path.splitext(filename)[1][1:],sync_ext)
+                    continue
+                filepath = os.path.join(source,filename)                
+                files_source_md5[filename]=digest(filepath)
 
         files_to_remove=[]
+
         for file in files_destination_md5:
             if file not in files_source_md5:
                 path = os.path.join(dest, file)
@@ -70,22 +81,17 @@ def filetree(source, dest):
             if file not in files_destination_md5:
                 path_source = os.path.join(source, file)
                 path_dest = os.path.join(dest, file)
-                shutil.copy(path_source, path_dest)
-                
-                adiciona_linha_log("Copiado: " + str(path_source) + " para " + str(path_dest))
-            
-                path_dest = os.path.join(dest,file)
-                with open(path_dest, encoding='utf8') as file_to_check:
-                    data = file_to_check.read() + path_dest   
-                    md5_returned = hashlib.md5(str(data).encode('utf-8')).hexdigest()
-                files_destination_md5[file]=md5_returned
-
+                shutil.copy(path_source, path_dest)                
+                adiciona_linha_log("Copiado: " + str(path_source) + " para " + str(path_dest))           
+                filepath = os.path.join(dest,file)
+                files_destination_md5[file]=digest(filepath)
             else:            
                 if files_source_md5[file] != files_destination_md5[file]:
                     path_source = os.path.join(source, file)
                     path_dest = os.path.join(dest, file)
                     shutil.copy(path_source, path_dest)
                     adiciona_linha_log("Sobrescrito: " + str(path_source) + " para " + str(path_dest))
+
     except Exception as err:
         print(err)
         adiciona_linha_log(str(err))
@@ -93,8 +99,7 @@ def filetree(source, dest):
 def sync_all_folders():
     for item in configs['SYNC_FOLDERS']:
         paths = (configs['SYNC_FOLDERS'][item]).split(', ')
-        filetree(paths[0], paths[1])
-
+        filetree(paths[0], paths[1], item)
 
 class Event(LoggingEventHandler):
     try:
@@ -105,7 +110,7 @@ class Event(LoggingEventHandler):
             for item in configs['SYNC_FOLDERS']:
                 paths = (configs['SYNC_FOLDERS'][item]).split(', ')
                 if paths[0] in path_event:
-                    filetree(paths[0], paths[1])
+                    filetree(paths[0], paths[1], item)
     except Exception as err:
         print("Erro: ",err)
         adiciona_linha_log(str(err))
@@ -133,11 +138,9 @@ if __name__ == "__main__":
             sleep_time = int(configs['SYNC_TIMES']['sync_with_no_events_time'])
             if (sleep_time > 0):
                 time.sleep(sleep_time)
-                print("Synchronizing...\n")
                 sync_all_folders()
             else:
                 time.sleep(30)
-            print("ENGENHARIA NSC - Sincronizador de Diretórios")
           
     except KeyboardInterrupt:
         observer.stop()
