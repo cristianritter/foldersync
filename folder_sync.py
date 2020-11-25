@@ -35,7 +35,7 @@ def digest(filepath):
 
 def filetree(source, dest, sync_name):
     try: 
-        sync_ext = configs['SYNC_EXTENSIONS'][sync_name].split(', ')
+        sync_ext = configs['SYNC_EXTENSIONS'][sync_name].split(", ")
     except:
         sync_ext = []
 
@@ -48,8 +48,7 @@ def filetree(source, dest, sync_name):
                 filestring = str(e)
                 file_array = filestring.split('\'')
                 filename = file_array[1]
-                if (os.path.splitext(filename)[1][1:] not in sync_ext) & (len(sync_ext)):
-                    #print(os.path.splitext(filename)[1][1:],sync_ext)
+                if (not os.path.splitext(filename)[1][1:] in sync_ext) & (len(sync_ext) > 0):
                     continue
                 filepath = os.path.join(dest,filename)
                 files_destination_md5[filename]=digest(filepath)
@@ -58,9 +57,8 @@ def filetree(source, dest, sync_name):
             if e.is_file():
                 filestring = str(e)
                 file_array = filestring.split('\'')
-                filename = file_array[1]
-                if (os.path.splitext(filename)[1][1:] not in sync_ext) & (len(sync_ext)):
-                    #print(os.path.splitext(filename)[1][1:],sync_ext)
+                filename = file_array[1]                
+                if (not os.path.splitext(filename)[1][1:] in sync_ext) & (len(sync_ext) > 0):
                     continue
                 filepath = os.path.join(source,filename)                
                 files_source_md5[filename]=digest(filepath)
