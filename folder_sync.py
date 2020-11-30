@@ -8,12 +8,21 @@ import hashlib
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 from datetime import date, datetime
+from pyzabbix import ZabbixMetric, ZabbixSender
 
 configuration = parse_config.ConfPacket()
-configs = configuration.load_config('SYNC_FOLDERS, LOG_FOLDER, SYNC_TIMES, SYNC_EXTENSIONS')
+configs = configuration.load_config('SYNC_FOLDERS, LOG_FOLDER, SYNC_TIMES, SYNC_EXTENSIONS, ZABBIX')
 
 files_destination_md5=dict()
 files_source_md5=dict()
+error_counter = 0
+metric_value = 0
+
+def send_status_metric(value):
+    packet = [
+        ZabbixMetric(configs['ZABBIX']['hostname'], configs['ZABBIX']['key'], value)
+    ]
+    ZabbixSender(zabbix_server=configs['ZABBIX']['zabbix_server'], zabbix_port=int(configs['ZABBIX']['port'])).send(packet)
 
 def adiciona_linha_log(texto):
     try:
@@ -22,10 +31,11 @@ def adiciona_linha_log(texto):
         dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         f.write(dataFormatada + texto +"\n")
         f.close()
-        print(texto)
+        print(dataFormatada, texto)
     except Exception as err:
-        print(err)        
-
+        dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        print(dataFormatada, err)
+        
 def digest(filepath):
     path, filename = os.path.split(filepath)
     with open(filepath, 'rb') as file:
@@ -89,15 +99,25 @@ def filetree(source, dest, sync_name):
                     path_dest = os.path.join(dest, file)
                     shutil.copy(path_source, path_dest)
                     adiciona_linha_log("Sobrescrito: " + str(path_source) + " para " + str(path_dest))
+        return 0
 
     except Exception as err:
-        print(err)
+        dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        print(dataFormatada, err)
         adiciona_linha_log(str(err))
+        return 1
 
 def sync_all_folders():
+    global error_counter
+    error_counter = 0
     for item in configs['SYNC_FOLDERS']:
         paths = (configs['SYNC_FOLDERS'][item]).split(', ')
-        filetree(paths[0], paths[1], item)
+        error_counter += filetree(paths[0], paths[1], item)
+    if error_counter > 0: 
+        global metric_value
+        metric_value = 1
+    else:
+         metric_value = 0
 
 class Event(LoggingEventHandler):
     try:
@@ -106,11 +126,18 @@ class Event(LoggingEventHandler):
             adiciona_linha_log(str(event))
             path_event = str(event.src_path)
             for item in configs['SYNC_FOLDERS']:
+                global error_counter
                 paths = (configs['SYNC_FOLDERS'][item]).split(', ')
                 if paths[0] in path_event:
-                    filetree(paths[0], paths[1], item)
+                    error_counter += filetree(paths[0], paths[1], item)
+                if error_counter > 0: 
+                    metric_value = 1
+                else:
+                    metric_value = 0
+
     except Exception as err:
-        print("Erro: ",err)
+        dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        print(dataFormatada, "Erro: ",err)
         adiciona_linha_log(str(err))
 
 
@@ -134,6 +161,7 @@ if __name__ == "__main__":
     try:
         while True:
             sleep_time = int(configs['SYNC_TIMES']['sync_with_no_events_time'])
+            send_status_metric(metric_value)
             if (sleep_time > 0):
                 time.sleep(sleep_time)
                 sync_all_folders()
