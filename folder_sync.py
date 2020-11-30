@@ -25,15 +25,14 @@ def send_status_metric(value):
     ZabbixSender(zabbix_server=configs['ZABBIX']['zabbix_server'], zabbix_port=int(configs['ZABBIX']['port'])).send(packet)
 
 def adiciona_linha_log(texto):
+    dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+    print(dataFormatada, texto)
     try:
         log_file = configs['LOG_FOLDER']['log_file']
         f = open(log_file, "a")
-        dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         f.write(dataFormatada + texto +"\n")
         f.close()
-        print(dataFormatada, texto)
     except Exception as err:
-        dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         print(dataFormatada, err)
         
 def digest(filepath):
@@ -77,47 +76,43 @@ def filetree(source, dest, sync_name):
 
         for file in files_destination_md5:
             if file not in files_source_md5:
-                path = os.path.join(dest, file)
-                os.remove(path)
-                adiciona_linha_log("Removido: " + str(path))
+                path_dest = os.path.join(dest, file)
+                os.remove(path_dest)
+                adiciona_linha_log("Removido: " + str(path_dest))
                 files_to_remove.append(file)
             
         for item in files_to_remove:
             files_destination_md5.pop(item)
 
         for file in files_source_md5:
+            path_source = os.path.join(source, file)
+            path_dest = os.path.join(dest, file)
             if file not in files_destination_md5:
-                path_source = os.path.join(source, file)
-                path_dest = os.path.join(dest, file)
                 shutil.copy(path_source, path_dest)                
+                files_destination_md5[file]=digest(path_dest)
                 adiciona_linha_log("Copiado: " + str(path_source) + " para " + str(path_dest))           
-                filepath = os.path.join(dest,file)
-                files_destination_md5[file]=digest(filepath)
             else:            
                 if files_source_md5[file] != files_destination_md5[file]:
-                    path_source = os.path.join(source, file)
-                    path_dest = os.path.join(dest, file)
                     shutil.copy(path_source, path_dest)
                     adiciona_linha_log("Sobrescrito: " + str(path_source) + " para " + str(path_dest))
         return 0
 
     except Exception as err:
-        dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-        print(dataFormatada, err)
+        send_status_metric(1)  
         adiciona_linha_log(str(err))
         return 1
 
 def sync_all_folders():
     global error_counter
+    global metric_value
     error_counter = 0
     for item in configs['SYNC_FOLDERS']:
         paths = (configs['SYNC_FOLDERS'][item]).split(', ')
         error_counter += filetree(paths[0], paths[1], item)
     if error_counter > 0: 
-        global metric_value
         metric_value = 1
     else:
-         metric_value = 0
+        metric_value = 0
 
 class Event(LoggingEventHandler):
     try:
@@ -126,18 +121,16 @@ class Event(LoggingEventHandler):
             adiciona_linha_log(str(event))
             path_event = str(event.src_path)
             for item in configs['SYNC_FOLDERS']:
-                global error_counter
                 paths = (configs['SYNC_FOLDERS'][item]).split(', ')
                 if paths[0] in path_event:
-                    error_counter += filetree(paths[0], paths[1], item)
-                if error_counter > 0: 
-                    metric_value = 1
-                else:
-                    metric_value = 0
-
+                    error = filetree(paths[0], paths[1], item)
+            if error > 0: 
+                send_status_metric(1)
+            else:
+                send_status_metric(0)  
+            
     except Exception as err:
-        dataFormatada = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-        print(dataFormatada, "Erro: ",err)
+        send_status_metric(1)  
         adiciona_linha_log(str(err))
 
 
@@ -154,10 +147,10 @@ if __name__ == "__main__":
             host = (configs['SYNC_FOLDERS'][item]).split(', ')
             observer.schedule(event_handler, host[0], recursive=True)
         except Exception as err:
-            print("Erro ao carregar o diretório: ", host[0])
             adiciona_linha_log(str(err)+host[0])
 
     observer.start()
+
     try:
         while True:
             sleep_time = int(configs['SYNC_TIMES']['sync_with_no_events_time'])
