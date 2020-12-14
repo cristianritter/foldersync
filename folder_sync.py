@@ -180,6 +180,7 @@ if __name__ == "__main__":
       
     event_handler = Event()
     observer = Observer()
+    Waiter().start()
 
     for item in configs['SYNC_FOLDERS']:
         try:
