@@ -57,7 +57,7 @@ def digest(filepath):
             md5_returned = hashlib.md5(data).hexdigest()
         return md5_returned
     except Exception as err:
-        adiciona_linha_log("Falha durante digest - "+str(err))
+        adiciona_linha_log("Falha durante digest - "+str(err)+" - "+filepath)
 
 def filetree(source, dest, sync_name):
     try: 
@@ -111,8 +111,8 @@ def filetree(source, dest, sync_name):
             path_dest = os.path.join(dest, file)
             if file not in files_destination_md5:
                 shutil.copy(path_source, path_dest)                
-                files_destination_md5[file]=digest(path_dest)
-                adiciona_linha_log("Copiado: " + str(path_source) + " para " + str(path_dest))           
+             #   files_destination_md5[file]=digest(path_dest)
+                adiciona_linha_log("Copiado: " + str(path_source) + " para " + str(path_dest))
             else:            
                 if files_source_md5[file] != files_destination_md5[file]:
                     shutil.copy(path_source, path_dest)
@@ -135,8 +135,8 @@ def sync_all_folders():
         global metric_value
         error_counter = 0
         for item in configs['SYNC_FOLDERS']:
-            paths = (configs['SYNC_FOLDERS'][item]).split(', ')
-            error_counter += filetree(paths[0], paths[1], item)
+            path = (configs['SYNC_FOLDERS'][item]).split(', ')
+            error_counter += filetree(path[0], path[1], item)
             time.sleep(1)
         if error_counter > 0: 
             metric_value = 1
